@@ -83,15 +83,15 @@ export const handler = async function (argv: any) {
 function renderPins(topic_id: string, pins: any[], argv) {
   Utils._.templateSettings.interpolate = /{{([\s\S]+?)}}/g
   const template = `
-## [{{ user }}]({{ userLink }})
+## {{ user }}
 
 在 \`{{ date }}\` 发布沸点于 \`{{ topic }}\`
 
-{{ content }}
+{{ content }}{{ outLink }}
 
 {{ images }}
 
-[查看原文]({{ pinLink }})
+{{ pinLink }}
 `
   const pinsRendered: any[] = []
   pins.forEach(pin => {
@@ -111,13 +111,13 @@ function renderPins(topic_id: string, pins: any[], argv) {
       }
     }
     pinsRendered.push(Utils._.template(template)({
-      user: `${pin.author_user_info.user_name} [L${pin.author_user_info.level}]${title}`,
+      user: `[${pin.author_user_info.user_name}](https://juejin.im/user/${pin.author_user_info.user_id}) [L${pin.author_user_info.level}]${title}`,
       date: Utils.day(pin.msg_Info.ctime * 1000).format('YYYY-MM-DD HH:mm'),
       content: pin.msg_Info.content,
       images: pin.msg_Info.pic_list.map(image => `![](${image})`).join('\n'),
       topic: `[${pin.topic.title}]`,
-      pinLink: `https://juejin.im/pin/${pin.msg_id}`,
-      userLink: `https://juejin.im/user/${pin.author_user_info.user_id}`
+      pinLink: `[查看原文](https://juejin.im/pin/${pin.msg_id})`,
+      outLink: pin.msg_Info.url ? ('\n\n===> ' + `[${pin.msg_Info.url_title ? pin.msg_Info.url_title : '相关链接'}](${pin.msg_Info.url})` + ' <===' ) : ''
     }))
   })
 
