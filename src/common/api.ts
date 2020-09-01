@@ -17,3 +17,21 @@ export async function getPinsByTopic({ id_type = 4, sort_type = 200, limit = 20,
 
   return response.body.data
 }
+
+export async function getRecommendedPins({id_type = 4, sort_type = 300, cursor = "0", limit = 20} = {}) {
+  const response: any = await got.post('https://apinew.juejin.im/recommend_api/v1/short_msg/recommend', {
+    json: { id_type, sort_type, limit, cursor },
+    responseType: 'json'
+  })
+
+  return response.body.data
+}
+
+export async function getHotPins({id_type = 4, sort_type = 200, cursor = "0", limit = 20} = {}) {
+  const response: any = await got.post('https://apinew.juejin.im/recommend_api/v1/short_msg/hot', {
+    json: { id_type, sort_type, limit, cursor },
+    responseType: 'json'
+  })
+
+  return response.body.data
+}

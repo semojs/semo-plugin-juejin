@@ -12,27 +12,66 @@ Utils.inquirer.registerPrompt('autocomplete', InquirerAutucompletePrompt);
 
 import * as juejin from '../../common/api'
 
+const JUEJIN_PIN_RECOMMENDED_TOPIC_ID = 1
+const JUEJIN_PIN_HOT_TOPIC_ID = 2
+
 export const disabled = false // Set to true to disable this command temporarily
 // export const plugin = '' // Set this for importing plugin config
-export const command = 'pin'
-export const desc = 'pin'
+export const command = 'pin [topicKeyword]'
+export const desc = 'View Juejin pins.'
 // export const aliases = ''
 // export const middleware = (argv) => {}
 
 export const builder = function (yargs: any) {
-  yargs.option('single', { describe: 'render one pin a time' })
-  // yargs.commandDir('pins')
+  yargs.option('size', { default: 20, describe: 'The number of pins a time, should be 1, 2, 4, 5, 10, 20', alias: 'S', choices: [1, 2, 4, 5, 10, 20] })
 }
 
 export const handler = async function (argv: any) {
-  const topics = await juejin.getTopics()
-  const topic_id = await chooseTopic(topics)
+  let topics = await juejin.getTopics()
+
+  topics.unshift({
+    topic_id: JUEJIN_PIN_HOT_TOPIC_ID,
+    topic: {
+      title: '热门沸点'
+    }
+  })
+
+  topics.unshift({
+    topic_id: JUEJIN_PIN_RECOMMENDED_TOPIC_ID,
+    topic: {
+      title: '推荐沸点'
+    }
+  })
+  
+  let topicsFiltered: any[] = []
+  if (argv.topicKeyword) {
+    topicsFiltered = topics.filter(item => item.topic.title.indexOf(argv.topicKeyword) > -1)
+  }
+
+  let topic_id
+  if (topicsFiltered.length === 1) {
+    topic_id = topicsFiltered[0].topic_id
+  } else if (topicsFiltered.length > 1) {
+    topic_id = await chooseTopic(topicsFiltered)
+  } else {
+    Utils.warn('Topic not found!')
+    topic_id = await chooseTopic(topics)
+  }
+
   let cursor = "0"
   let page = 1
   let firstPinId
 
   while (true) {
-    const pins = await juejin.getPinsByTopic({ topic_id, cursor })
+    let pins 
+    if (topic_id === JUEJIN_PIN_RECOMMENDED_TOPIC_ID) {
+      pins = await juejin.getRecommendedPins({ cursor })
+    } else if (topic_id === JUEJIN_PIN_HOT_TOPIC_ID) {
+      pins = await juejin.getHotPins({ cursor })
+    } else {
+      pins = await juejin.getPinsByTopic({ topic_id, cursor })
+    }
+
     if (!firstPinId) {
       firstPinId = pins[0].msg_id
     }
@@ -44,11 +83,15 @@ export const handler = async function (argv: any) {
 function renderPins(topic_id: string, pins: any[], argv) {
   Utils._.templateSettings.interpolate = /{{([\s\S]+?)}}/g
   const template = `
-## {{ user }} 在 {{ date }} 发布沸点 {{ topic }}
+## [{{ user }}]({{ userLink }})
+
+在 \`{{ date }}\` 发布沸点于 \`{{ topic }}\`
 
 {{ content }}
 
 {{ images }}
+
+[查看原文]({{ pinLink }})
 `
   const pinsRendered: any[] = []
   pins.forEach(pin => {
@@ -69,27 +112,21 @@ function renderPins(topic_id: string, pins: any[], argv) {
     }
     pinsRendered.push(Utils._.template(template)({
       user: `${pin.author_user_info.user_name} [L${pin.author_user_info.level}]${title}`,
-      date: Utils.day(pin.msg_Info.ctime).format('YYYY-MM-DD HH:mm'),
+      date: Utils.day(pin.msg_Info.ctime * 1000).format('YYYY-MM-DD HH:mm'),
       content: pin.msg_Info.content,
       images: pin.msg_Info.pic_list.map(image => `![](${image})`).join('\n'),
-      topic: `[${pin.topic.title}]`
+      topic: `[${pin.topic.title}]`,
+      pinLink: `https://juejin.im/pin/${pin.msg_id}`,
+      userLink: `https://juejin.im/user/${pin.author_user_info.user_id}`
     }))
   })
 
-  if (argv.single) {
-    pinsRendered.forEach(pin => {
-      Utils.consoleReader(marked(pin), {
-        plugin: 'semo-plugin-juejin',
-        identifier: topic_id
-      })
-    })
-  } else {
-
-    Utils.consoleReader(marked(pinsRendered.join('\n\n---\n\n')), {
+  Utils._.chunk(pinsRendered, argv.size).forEach(pins => {
+    Utils.consoleReader(marked(pins.join('\n\n---\n\n')), {
       plugin: 'semo-plugin-juejin',
-      identifier: topic_id
+      identifier: topic_id + ''
     })
-  }
+  })
 }
 
 async function chooseTopic(topics) {
@@ -97,7 +134,7 @@ async function chooseTopic(topics) {
     {
       type: 'autocomplete',
       name: 'selected',
-      message: `Please choose a juejin topic to continue:`,
+      message: `Please choose a Juejin topic to continue:`,
       pageSize: 20,
       source: (answers, input) => {
         input = input || '';
