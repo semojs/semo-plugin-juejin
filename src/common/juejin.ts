@@ -1,6 +1,7 @@
-
 import { Utils } from '@semo/core'
-
+import got from 'got'
+import iterm2Version from 'iterm2-version'
+import terminalImage from 'terminal-image'
 import marked from 'marked'
 import TerminalRenderer from 'marked-terminal'
 marked.setOptions({
@@ -70,7 +71,7 @@ export async function pins(topicKeyword, opts) {
     if (!firstPinId) {
       firstPinId = pins[0].msg_id
     }
-    const goon = renderPins(topic_id, pins, opts)
+    const goon = await renderPins(topic_id, pins, opts)
     if (!goon) {
       break;
     }
@@ -79,7 +80,7 @@ export async function pins(topicKeyword, opts) {
 }
 
 
-function renderPins(topic_id: string, pins: any[], opts) {
+async function renderPins(topic_id: string, pins: any[], opts) {
   Utils._.templateSettings.interpolate = /{{([\s\S]+?)}}/g
   const template = `
 ## {{ user }}
@@ -93,7 +94,7 @@ function renderPins(topic_id: string, pins: any[], opts) {
 {{ pinLink }}
 `
   const pinsRendered: any[] = []
-  pins.forEach(pin => {
+  for (let pin of pins) {
 
     let title = ''
     if (pin.author_user_info.job_title || pin.author_user_info.company) {
@@ -109,27 +110,48 @@ function renderPins(topic_id: string, pins: any[], opts) {
         title = ' [' + title + ']'
       }
     }
+
+    let images: any = ''
+    if (opts.less || opts.mdcat || !itSupportTerminalImage()) {
+      images = pin.msg_Info.pic_list.map(image => `![](${image})`).join('\n')
+    } else {
+      const imagesData = await Promise.all(pin.msg_Info.pic_list.map(image => (async function (image) {
+        const body = await got(image).buffer()
+	      return terminalImage.buffer(body, { width: 'auto', height: 'auto' })
+      })(image)))
+
+      images = imagesData.join('\n\n')
+    }
+
+
     pinsRendered.push(Utils._.template(template)({
       user: `[${pin.author_user_info.user_name}](https://juejin.im/user/${pin.author_user_info.user_id}) [L${pin.author_user_info.level}]${title}`,
       date: Utils.day(pin.msg_Info.ctime * 1000).format('YYYY-MM-DD HH:mm'),
       content: pin.msg_Info.content,
-      images: pin.msg_Info.pic_list.map(image => `![](${image})`).join('\n'),
+      images,
       topic: `[${pin.topic.title}]`,
       pinLink: `[查看原文](https://juejin.im/pin/${pin.msg_id})`,
       outLink: pin.msg_Info.url ? ('\n\n===> ' + `[${pin.msg_Info.url_title ? pin.msg_Info.url_title : '相关链接'}](${pin.msg_Info.url})` + ' <===' ) : ''
     }))
-  })
+  }
 
   for (const pins of Utils._.chunk(pinsRendered, opts.size)) {
-    if (!opts.less && Utils.shell.which('mdcat')) {
+    if (opts.less) {
+      Utils.consoleReader(marked(pins.join('\n\n---\n\n')), {
+        plugin: 'semo-plugin-juejin',
+        identifier: topic_id + ''
+      })
+    } else if (opts.mdcat && Utils.shell.which('mdcat')) {
+      Utils.clearConsole()
+
       const tmpPath = Utils.consoleReader(pins.join('\n\n---\n\n'), {
         plugin: 'semo-plugin-juejin',
         identifier: topic_id + '',
-        // @ts-ignore
         tmpPathOnly: true
       })
 
-      Utils.exec(`/usr/local/bin/mdcat ${tmpPath}`)
+      Utils.exec(`mdcat ${tmpPath}`)
+      Utils.fs.unlinkSync(tmpPath)
 
       console.log()
       const input = prompt('Continue？[Y/n] [enter to continue, ^C or n+enter to quit]: ', 'Y', {
@@ -138,13 +160,18 @@ function renderPins(topic_id: string, pins: any[], opts) {
 
       if (input === 'n' || Utils._.isNull(input)) return false
       console.log()
-      process.stdout.isTTY && Utils.clearConsole()
     } else {
+      Utils.clearConsole()
 
-      Utils.consoleReader(marked(pins.join('\n\n---\n\n')), {
-        plugin: 'semo-plugin-juejin',
-        identifier: topic_id + ''
+      console.log(marked(pins.join('\n\n---\n\n')))
+
+      const input = prompt('Continue？[Y/n] [enter to continue, ^C or n+enter to quit]: ', 'Y', {
+        echo: ''
       })
+
+      if (input === 'n' || Utils._.isNull(input)) return false
+      console.log()
+      
     }
   }
 
@@ -178,4 +205,9 @@ async function chooseTopic(topics) {
   ])
 
   return selectTopic.selected
+}
+
+function itSupportTerminalImage() {
+  const version: any = iterm2Version()
+  return process.env.TERM_PROGRAM === 'iTerm.app' && Number(version[0]) >= 3
 }
