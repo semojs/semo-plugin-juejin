@@ -131,13 +131,14 @@ function renderPins(topic_id: string, pins: any[], opts) {
 
       Utils.exec(`/usr/local/bin/mdcat ${tmpPath}`)
 
-      console.log('\n---\n')
-      const input = prompt('Continue？(Y/n) [enter to continue, ^C or n+enter to quit]: ', 'Y', {
+      console.log()
+      const input = prompt('Continue？[Y/n] [enter to continue, ^C or n+enter to quit]: ', 'Y', {
         echo: ''
       })
 
       if (input === 'n' || Utils._.isNull(input)) return false
       console.log()
+      process.stdout.isTTY && Utils.clearConsole()
     } else {
 
       Utils.consoleReader(marked(pins.join('\n\n---\n\n')), {
