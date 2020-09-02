@@ -98,6 +98,7 @@ async function renderPins(topic_id: string, pins: any[], opts) {
   for (const chunkedPins of Utils._.chunk(pins, opts.size)) {
     const pinsRendered: any[] = []
     for (let pin of chunkedPins) {
+      pin.msg_Info.pic_list = pin.msg_Info.pic_list.map(image => image.replace('.image', '.png'))
 
       let title = ''
       if (pin.author_user_info.job_title || pin.author_user_info.company) {
@@ -119,7 +120,7 @@ async function renderPins(topic_id: string, pins: any[], opts) {
         images = pin.msg_Info.pic_list.map(image => `![](${image})`).join('\n')
       } else {
         const imagesData = await Promise.all(pin.msg_Info.pic_list.map(image => (async function (image) {
-          const body = await got(image.replace('.image', '.png')).buffer()
+          const body = await got(image).buffer()
           return terminalImage.buffer(body, { width: 'auto', height: 'auto' })
         })(image)))
 

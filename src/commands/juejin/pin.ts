@@ -8,7 +8,7 @@ export const desc = 'View Juejin pins.'
 // export const middleware = (argv) => {}
 
 export const builder = function (yargs: any) {
-  yargs.option('size', { default: 1, describe: 'The number of pins a time, should be 1, 2, 4, 5, 10, 20', alias: 'S', choices: [1, 2, 4, 5, 10, 20] })
+  yargs.option('size', { default: 1, describe: 'The number of pins a time.', alias: 'S', choices: [1, 2, 4, 5, 10, 20] })
   yargs.option('less', { describe: 'Force use less mode.' })
   yargs.option('mdcat', { describe: 'Force use mdcat mode, you need to install mdcat.' })
 }
