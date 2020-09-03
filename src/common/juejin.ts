@@ -19,6 +19,8 @@ const prompt = Prompt()
 
 const JUEJIN_PIN_RECOMMENDED_TOPIC_ID = 1
 const JUEJIN_PIN_HOT_TOPIC_ID = 2
+const JUEJIN_POST_RECOMMENDED_ALL_CATEGORY_ID = 1
+const JUEJIN_POST_RECOMMENDED_ALL_TAG_ID = 1
 
 export async function pins(topicKeyword, opts) {
   let topics = await juejin.getTopics()
@@ -26,20 +28,25 @@ export async function pins(topicKeyword, opts) {
   topics.unshift({
     topic_id: JUEJIN_PIN_HOT_TOPIC_ID,
     topic: {
-      title: '热门沸点'
+      title: '热门沸点',
+      short: 'hot'
     }
   })
 
   topics.unshift({
     topic_id: JUEJIN_PIN_RECOMMENDED_TOPIC_ID,
     topic: {
-      title: '推荐沸点'
+      title: '推荐沸点',
+      short: 'recommand'
     }
   })
   
   let topicsFiltered: any[] = []
   if (topicKeyword) {
-    topicsFiltered = topics.filter(item => item.topic.title.indexOf(topicKeyword) > -1)
+    topicsFiltered = topics.filter(item => {
+      return item.topic.title.toLowerCase().indexOf(topicKeyword.toLowerCase()) > -1
+        || item.topic.short && item.topic.short.toLowerCase().indexOf(topicKeyword.toLowerCase()) > -1
+    })
   }
 
   let topic_id
@@ -213,4 +220,124 @@ async function chooseTopic(topics) {
 function itSupportTerminalImage() {
   const version: any = iterm2Version()
   return process.env.TERM_PROGRAM === 'iTerm.app' && Number(version[0]) >= 3
+}
+
+export async function posts(categoryKeyword = '', tagKeyword = '', opts = {}) {
+  const categories = await juejin.getCategoryBriefs()
+  categories.unshift({
+    category_id: JUEJIN_POST_RECOMMENDED_ALL_CATEGORY_ID,
+    category_name: '全站推荐',
+    category_url: 'all'
+  })
+
+  let categoriesFiltered: any[] = []
+  if (categoryKeyword) {
+    categoriesFiltered = categories.filter(item => { 
+      return item.category_name.toLowerCase().indexOf(categoryKeyword.toLowerCase()) > -1 
+        || item.category_url.toLowerCase().indexOf(categoryKeyword.toLowerCase()) > -1
+    })
+  }
+
+  let cate_id
+  if (categoriesFiltered.length === 1) {
+    cate_id = categoriesFiltered[0].category_id
+  } else if (categoriesFiltered.length > 1) {
+    cate_id = await chooseCategory(categoriesFiltered)
+  } else {
+    if (categoryKeyword) {
+      Utils.warn('Category not found!')
+    }
+    cate_id = await chooseCategory(categories)
+  }
+
+  let tag_id
+  if (cate_id !== JUEJIN_POST_RECOMMENDED_ALL_CATEGORY_ID) {
+    const tags = await juejin.getRecommendedTagList({
+      cate_id
+    })
+
+    tags.unshift({
+      tag_id: JUEJIN_POST_RECOMMENDED_ALL_TAG_ID,
+      tag_name: '全部'
+    })
+
+    let tagsFiltered: any[] = []
+    if (tagKeyword) {
+      tagsFiltered = tags.filter(item => {
+        return item.tag_name.toLowerCase().indexOf(tagKeyword.toLowerCase()) > -1
+      })
+    }
+
+    if (tagsFiltered.length === 1) {
+      tag_id = tagsFiltered[0].tag_id
+    } else if (tagsFiltered.length > 1) {
+      tag_id = await chooseTag(tagsFiltered)
+    } else {
+      if (tagKeyword) {
+        Utils.warn('Tag not found!')
+      }
+      tag_id = await chooseTag(tags)
+    }
+  }
+
+  console.log('cate_id', cate_id)
+  console.log('tag_id', tag_id)
+}
+
+async function chooseTag(tags) {
+  const selectCategory = await Utils.inquirer.prompt([
+    {
+      type: 'autocomplete',
+      name: 'selected',
+      message: `Please choose a Juejin tag to continue:`,
+      pageSize: 20,
+      source: (answers, input) => {
+        input = input || '';
+        let i = 0
+        var fuzzyResult = fuzzy.filter(input, tags, {
+          extract: (el:any) => {
+            return String(++i).padStart(2, '0') + ' ' + el.tag_name
+          }
+        });
+        return fuzzyResult.map(function (el) {
+          // console.log(el)
+          return {
+            name: el.string,
+            value: el.original.tag_id
+          }
+        })
+      }
+    }
+  ])
+
+  return selectCategory.selected
+}
+
+async function chooseCategory(categories) {
+  const selectCategory = await Utils.inquirer.prompt([
+    {
+      type: 'autocomplete',
+      name: 'selected',
+      message: `Please choose a Juejin category to continue:`,
+      pageSize: 20,
+      source: (answers, input) => {
+        input = input || '';
+        let i = 0
+        var fuzzyResult = fuzzy.filter(input, categories, {
+          extract: (el:any) => {
+            return String(++i).padStart(2, '0') + ' ' + el.category_name
+          }
+        });
+        return fuzzyResult.map(function (el) {
+          // console.log(el)
+          return {
+            name: el.string,
+            value: el.original.category_id
+          }
+        })
+      }
+    }
+  ])
+
+  return selectCategory.selected
 }

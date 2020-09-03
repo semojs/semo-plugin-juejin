@@ -1,5 +1,52 @@
 import got from 'got'
 
+export async function getCategoryBriefs() {
+  const response: any = await got.get('https://apinew.juejin.im/tag_api/v1/query_category_briefs?show_type=0', {
+    responseType: 'json'
+  })
+
+  return response.body.data
+}
+
+export async function getRecommendedAllFeed({ id_type = 2, client_type = 2608, sort_type = 200, cursor = "0", limit = 20 } = {}) {
+  const response: any = await got.post('https://apinew.juejin.im/recommend_api/v1/article/recommend_all_feed', {
+    json: { id_type, client_type, limit, cursor, sort_type },
+    responseType: 'json'
+  })
+
+  return response.body.data
+}
+
+export async function getRecommendedCateFeed({ id_type = 2, sort_type = 200, cate_id = "", cursor = "0", limit = 20 } = {}) {
+  const response: any = await got.post('https://apinew.juejin.im/recommend_api/v1/article/recommend_cate_feed', {
+    json: { id_type, limit, cursor, sort_type, cate_id },
+    responseType: 'json'
+  })
+
+  return response.body.data
+}
+
+export async function getRecommendedCateTagFeed({ id_type = 2, sort_type = 200, cate_id = "", tag_id = "", cursor = "0", limit = 20 } = {}) {
+  const response: any = await got.post('https://apinew.juejin.im/recommend_api/v1/article/recommend_cate_tag_feed', {
+    json: { id_type, limit, cursor, sort_type, cate_id, tag_id },
+    responseType: 'json'
+  })
+
+  return response.body.data
+}
+
+export async function getRecommendedTagList({ cate_id = "" }) {
+  const response: any = await got.post('https://apinew.juejin.im/recommend_api/v1/tag/recommend_tag_list', {
+    json: { cate_id },
+    responseType: 'json'
+  })
+
+  return response.body.data
+}
+
+
+
+
 export async function getTopics({ limit = 45, cursor = '0', sort_type = 7 } = {}) {
   const response: any = await got.post('https://apinew.juejin.im/tag_api/v1/query_topic_list', {
     json: { limit, cursor, sort_type },
