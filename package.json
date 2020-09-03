@@ -1,6 +1,17 @@
 {
   "name": "semo-plugin-juejin",
   "version": "0.0.0",
+  "description": "A Semo plugin to provide ability to view juejin in terminal",
+  "keywords": [
+    "semo",
+    "plugin",
+    "juejin",
+    "cli"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/semojs/semo-plugin-juejin"
+  },
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "license": "MIT",

@@ -38,13 +38,14 @@ export async function pins(topicKeyword, opts) {
     topic_id: JUEJIN_PIN_RECOMMENDED_TOPIC_ID,
     topic: {
       title: '推荐沸点',
-      short: 'recommand'
+      short: 'recommend'
     }
   })
   
   let topicsFiltered: any[] = []
   if (topicKeyword) {
     topicsFiltered = topics.filter(item => {
+      item.topic.short = item.topic.short || ''
       return fuzzy.test(topicKeyword, item.topic.title)
         || fuzzy.test(topicKeyword, item.topic.short)
     })
@@ -161,11 +162,13 @@ async function renderPins(topic_id: string, pins: any[], opts) {
         tmpPathOnly: true
       })
 
-      Utils.exec(`mdcat ${tmpPath}`)
+      try {
+        Utils.exec(`mdcat ${tmpPath}`)
+      } catch (e) {}
       Utils.fs.unlinkSync(tmpPath)
 
       console.log()
-      const input = prompt('Continue？[Y/n] [Press enter to continue, ^C or n+enter to quit]: ', 'Y', {
+      const input = prompt('是否继续？[Y/n] [回车继续, ^C 或 n+回车退出]: ', 'Y', {
         echo: ''
       })
 
@@ -176,7 +179,7 @@ async function renderPins(topic_id: string, pins: any[], opts) {
 
       console.log(marked(pinsRendered.join('\n\n---\n\n')))
 
-      const input = prompt('Continue？[Y/n] [Press enter to continue, ^C or n+enter to quit]: ', 'Y', {
+      const input = prompt('是否继续？[Y/n] [回车继续, ^C 或 n+回车退出]: ', 'Y', {
         echo: ''
       })
 
@@ -194,7 +197,7 @@ async function chooseTopic(topics) {
     {
       type: 'autocomplete',
       name: 'selected',
-      message: `Please choose a Juejin topic to continue:`,
+      message: `请选择一个话题: [支持模糊搜索]`,
       pageSize: 20,
       source: (answers, input) => {
         input = input || '';
@@ -337,12 +340,13 @@ export async function posts(categoryKeyword = '', tagKeyword = '', sortKeyword =
 
   let posts, cursor = '0'
   while (true) {
+    Utils.clearConsole()
     let data = await getPosts(cate_id, tag_id, sort_type, cursor)
     posts = data.posts
 
     posts.unshift({
       category: {
-        category_name: '系统功能'
+        category_name: '操作'
       },
       article_info: {
         article_id: 0,
@@ -375,10 +379,34 @@ export async function posts(categoryKeyword = '', tagKeyword = '', sortKeyword =
     }
   
     if (!opts.copyOnly) {
-      Utils.consoleReader(marked(markdown), {
-        plugin: 'semo-plugin-juejin',
-        identifier: post_id
-      })
+      if (opts.mdcat && Utils.shell.which('mdcat')) {
+        Utils.clearConsole()
+
+        const tmpPath = Utils.consoleReader(markdown.replace('.image)', '.png)'), {
+          plugin: 'semo-plugin-juejin',
+          identifier: post_id,
+          tmpPathOnly: true
+        })
+        try {
+          Utils.exec(`mdcat ${tmpPath}`)
+        } catch (e) {}
+
+        Utils.fs.unlinkSync(tmpPath)
+
+        console.log()
+        const input = prompt('是否继续？[Y/n] [回车继续, ^C 或 n+回车退出]: ', 'Y', {
+          echo: ''
+        })
+
+        if (input === 'n' || Utils._.isNull(input)) return false
+        console.log()
+      } else {
+        Utils.consoleReader(marked(markdown), {
+          plugin: 'semo-plugin-juejin',
+          identifier: post_id
+        })
+      }
+
     }
   }
 }
@@ -388,7 +416,7 @@ async function choosePost(posts) {
     {
       type: 'list',
       name: 'selected',
-      message: `Please choose a Juejin post to continue:`,
+      message: `请选择一篇文章: [j/k: 上/下移动 ^C: 退出]`,
       pageSize: 21,
       choices: posts.map((el, i) => {
         el = el.item_info ? el.item_info : el
@@ -408,7 +436,7 @@ async function chooseSortType(sorts) {
     {
       type: 'autocomplete',
       name: 'selected',
-      message: `Please choose a Juejin tag to continue:`,
+      message: `请选择排序类型: [支持模糊搜索]`,
       pageSize: 20,
       source: (answers, input) => {
         input = input || '';
@@ -451,7 +479,7 @@ async function chooseTag(tags) {
     {
       type: 'autocomplete',
       name: 'selected',
-      message: `Please choose a Juejin tag to continue:`,
+      message: `请选择一个标签: [支持模糊搜索]]`,
       pageSize: 20,
       source: (answers, input) => {
         input = input || '';
@@ -480,7 +508,7 @@ async function chooseCategory(categories) {
     {
       type: 'autocomplete',
       name: 'selected',
-      message: `Please choose a Juejin category to continue:`,
+      message: `请选择一个分类: [支持模糊搜索]`,
       pageSize: 20,
       source: (answers, input) => {
         input = input || '';
