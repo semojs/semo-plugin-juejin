@@ -1,3 +1,4 @@
+import { convertUrlToMarkdown, convertMarkdownToFile } from 'semo-plugin-read'
 import { Utils } from '@semo/core'
 import got from 'got'
 import iterm2Version from 'iterm2-version'
@@ -44,8 +45,8 @@ export async function pins(topicKeyword, opts) {
   let topicsFiltered: any[] = []
   if (topicKeyword) {
     topicsFiltered = topics.filter(item => {
-      return item.topic.title.toLowerCase().indexOf(topicKeyword.toLowerCase()) > -1
-        || item.topic.short && item.topic.short.toLowerCase().indexOf(topicKeyword.toLowerCase()) > -1
+      return fuzzy.test(topicKeyword, item.topic.title)
+        || fuzzy.test(topicKeyword, item.topic.short)
     })
   }
 
@@ -222,7 +223,7 @@ function itSupportTerminalImage() {
   return process.env.TERM_PROGRAM === 'iTerm.app' && Number(version[0]) >= 3
 }
 
-export async function posts(categoryKeyword = '', tagKeyword = '', opts = {}) {
+export async function posts(categoryKeyword = '', tagKeyword = '', sortKeyword = '', opts: any = {}) {
   const categories = await juejin.getCategoryBriefs()
   categories.unshift({
     category_id: JUEJIN_POST_RECOMMENDED_ALL_CATEGORY_ID,
@@ -233,8 +234,8 @@ export async function posts(categoryKeyword = '', tagKeyword = '', opts = {}) {
   let categoriesFiltered: any[] = []
   if (categoryKeyword) {
     categoriesFiltered = categories.filter(item => { 
-      return item.category_name.toLowerCase().indexOf(categoryKeyword.toLowerCase()) > -1 
-        || item.category_url.toLowerCase().indexOf(categoryKeyword.toLowerCase()) > -1
+      return fuzzy.test(categoryKeyword, item.category_name)
+        || fuzzy.test(categoryKeyword, item.category_url)
     })
   }
 
@@ -258,13 +259,15 @@ export async function posts(categoryKeyword = '', tagKeyword = '', opts = {}) {
 
     tags.unshift({
       tag_id: JUEJIN_POST_RECOMMENDED_ALL_TAG_ID,
-      tag_name: '全部'
+      tag_name: '全部',
+      tag_key: 'all'
     })
 
     let tagsFiltered: any[] = []
     if (tagKeyword) {
       tagsFiltered = tags.filter(item => {
-        return item.tag_name.toLowerCase().indexOf(tagKeyword.toLowerCase()) > -1
+        item.tag_key = item.tag_key || ''
+        return fuzzy.test(tagKeyword, item.tag_name) || fuzzy.test(tagKeyword, item.tag_key)
       })
     }
 
@@ -280,8 +283,167 @@ export async function posts(categoryKeyword = '', tagKeyword = '', opts = {}) {
     }
   }
 
-  console.log('cate_id', cate_id)
-  console.log('tag_id', tag_id)
+  let sort_type = 200
+  const sorts = [
+    {
+      key: 'hot',
+      value: 200,
+      name: '热门',
+    },
+    {
+      key: 'new',
+      value: 300,
+      name: '最新',
+    },
+    {
+      key: 'top3',
+      value: 3,
+      name: '3天热榜',
+    },
+    {
+      key: 'top7',
+      value: 7,
+      name: '7天热榜',
+    },
+    {
+      key: 'top-month',
+      value: 30,
+      name: '30天热榜',
+    },
+    {
+      key: 'top-all',
+      value: 0,
+      name: '全站热榜',
+    },
+  ]
+  let sortsFiltered: any[] = []
+  if (sortKeyword) {
+    sortsFiltered = sorts.filter(item => {
+      return fuzzy.test(sortKeyword, item.name)
+        || fuzzy.test(sortKeyword, item.key)
+    })
+  }
+
+  if (sortsFiltered.length === 1) {
+    sort_type = sortsFiltered[0].value
+  } else if (sortsFiltered.length > 1) {
+    sort_type = await chooseSortType(sortsFiltered)
+  } else {
+    if (sortKeyword) {
+      Utils.warn('Sort type not found!')
+    }
+    sort_type = await chooseSortType(sorts)
+  }
+
+  let posts, cursor = '0'
+  while (true) {
+    let data = await getPosts(cate_id, tag_id, sort_type, cursor)
+    posts = data.posts
+
+    posts.unshift({
+      category: {
+        category_name: '系统功能'
+      },
+      article_info: {
+        article_id: 0,
+        title: '下一页'
+      }
+    })
+    
+    const post_id = await choosePost(posts)
+
+    if (post_id === 0) {
+      cursor = data.cursor
+      continue
+    }
+  
+    const url = `https://juejin.im/post/${post_id}`
+    const converted = await convertUrlToMarkdown({ url })
+  
+    const { markdown, title } = converted
+  
+    if (opts.copy || opts.copyOnly) {
+      await convertMarkdownToFile({
+        format: 'clipboard',
+        markdown,
+        title,
+        converted,
+        argv: {
+          url
+        }
+      })
+    }
+  
+    if (!opts.copyOnly) {
+      Utils.consoleReader(marked(markdown), {
+        plugin: 'semo-plugin-juejin',
+        identifier: post_id
+      })
+    }
+  }
+}
+
+async function choosePost(posts) {
+  const selectSort = await Utils.inquirer.prompt([
+    {
+      type: 'list',
+      name: 'selected',
+      message: `Please choose a Juejin post to continue:`,
+      pageSize: 21,
+      choices: posts.map((el, i) => {
+        el = el.item_info ? el.item_info : el
+        return {
+          name: String(++i).padStart(2, '0') + ' ' + `[${el.category ? el.category.category_name : ''}${el.tags ? ' / ' + el.tags[0].tag_name : ''}] ` + el.article_info.title,
+          value: el.article_info.article_id
+        }
+      })
+    }
+  ])
+
+  return selectSort.selected
+}
+
+async function chooseSortType(sorts) {
+  const selectSort = await Utils.inquirer.prompt([
+    {
+      type: 'autocomplete',
+      name: 'selected',
+      message: `Please choose a Juejin tag to continue:`,
+      pageSize: 20,
+      source: (answers, input) => {
+        input = input || '';
+        let i = 0
+        var fuzzyResult = fuzzy.filter(input, sorts, {
+          extract: (el:any) => {
+            return String(++i).padStart(2, '0') + ' ' + el.name
+          }
+        });
+        return fuzzyResult.map(function (el) {
+          return {
+            name: el.string + ` (${el.original.key})`,
+            value: el.original.value
+          }
+        })
+      }
+    }
+  ])
+
+  return selectSort.selected
+}
+
+export async function getPosts(cate_id, tag_id = null, sort_type = 200, cursor = '0') {
+  let data = { posts: [], cursor: '0' }
+  if (cate_id === JUEJIN_POST_RECOMMENDED_ALL_CATEGORY_ID) {
+    data = await juejin.getRecommendedAllFeed({ sort_type, cursor })
+  } else {
+    if (tag_id === JUEJIN_POST_RECOMMENDED_ALL_TAG_ID) {
+      data = await juejin.getRecommendedCateFeed({ cate_id, sort_type, cursor })
+    } else {
+      data = await juejin.getRecommendedCateTagFeed({ cate_id, tag_id, sort_type, cursor })
+    }
+  }
+
+  return data
 }
 
 async function chooseTag(tags) {
@@ -302,7 +464,7 @@ async function chooseTag(tags) {
         return fuzzyResult.map(function (el) {
           // console.log(el)
           return {
-            name: el.string,
+            name: el.string + `${el.original.tag_key ? ' (' + el.original.tag_key + ')' : ''}`,
             value: el.original.tag_id
           }
         })
@@ -331,7 +493,7 @@ async function chooseCategory(categories) {
         return fuzzyResult.map(function (el) {
           // console.log(el)
           return {
-            name: el.string,
+            name: el.string + ` (${el.original.category_url})`,
             value: el.original.category_id
           }
         })

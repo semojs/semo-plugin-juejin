@@ -14,7 +14,7 @@ export async function getRecommendedAllFeed({ id_type = 2, client_type = 2608, s
     responseType: 'json'
   })
 
-  return response.body.data
+  return { posts: response.body.data, cursor: response.body.cursor }
 }
 
 export async function getRecommendedCateFeed({ id_type = 2, sort_type = 200, cate_id = "", cursor = "0", limit = 20 } = {}) {
@@ -23,16 +23,16 @@ export async function getRecommendedCateFeed({ id_type = 2, sort_type = 200, cat
     responseType: 'json'
   })
 
-  return response.body.data
+  return { posts: response.body.data, cursor: response.body.cursor }
 }
 
-export async function getRecommendedCateTagFeed({ id_type = 2, sort_type = 200, cate_id = "", tag_id = "", cursor = "0", limit = 20 } = {}) {
+export async function getRecommendedCateTagFeed({ id_type = 2, sort_type = 200, cate_id = null, tag_id = null, cursor = "0", limit = 20 } = {}) {
   const response: any = await got.post('https://apinew.juejin.im/recommend_api/v1/article/recommend_cate_tag_feed', {
     json: { id_type, limit, cursor, sort_type, cate_id, tag_id },
     responseType: 'json'
   })
 
-  return response.body.data
+  return { posts: response.body.data, cursor: response.body.cursor }
 }
 
 export async function getRecommendedTagList({ cate_id = "" }) {
