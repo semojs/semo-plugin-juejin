@@ -421,7 +421,7 @@ async function choosePost(posts) {
       choices: posts.map((el, i) => {
         el = el.item_info ? el.item_info : el
         return {
-          name: String(++i).padStart(2, '0') + ' ' + `[${el.category ? el.category.category_name : ''}${el.tags ? ' / ' + el.tags[0].tag_name : ''}] ` + el.article_info.title,
+          name: String(++i).padStart(2, '0') + ' ' + `[${el.category ? el.category.category_name : ''}${el.tags && el.tags[0] ? ' / ' + el.tags[0].tag_name : ''}] ` + el.article_info.title,
           value: el.article_info.article_id
         }
       })
