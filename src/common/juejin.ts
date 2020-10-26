@@ -418,7 +418,7 @@ async function choosePost(posts) {
       name: 'selected',
       message: `请选择一篇文章: [j/k: 上/下移动 ^C: 退出]`,
       pageSize: 21,
-      choices: posts.map((el, i) => {
+      choices: posts.filter(el => el.article_info || el.item_info.article_info).map((el, i) => {
         el = el.item_info ? el.item_info : el
         return {
           name: String(++i).padStart(2, '0') + ' ' + `[${el.category ? el.category.category_name : ''}${el.tags && el.tags[0] ? ' / ' + el.tags[0].tag_name : ''}] ` + el.article_info.title,
