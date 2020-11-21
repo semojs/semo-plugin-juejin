@@ -46,7 +46,7 @@
     "marked-terminal": "^4.1.0",
     "prompt-sync": "^4.2.0",
     "semo-plugin-read": "^1.0.15",
-    "semo-plugin-read-extend-domain-juejin": "^1.0.15",
+    "semo-plugin-read-extend-domain-juejin": "^1.0.18",
     "terminal-image": "^1.2.1"
   },
   "publishConfig": {

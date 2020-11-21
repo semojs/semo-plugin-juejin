@@ -85,6 +85,10 @@ semo juejin post -DM # 使用 mdcat 模式，我要看图
 
 ![](assets/image-20200904010832262.png)
 
+## 注意
+
+由于掘金改域名，从 v2 开始支持，建议升级到最新版本
+
 ## 协议
 
 MIT

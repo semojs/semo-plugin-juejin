@@ -138,12 +138,12 @@ async function renderPins(topic_id: string, pins: any[], opts) {
 
 
       pinsRendered.push(Utils._.template(template)({
-        user: `[${pin.author_user_info.user_name}](https://juejin.im/user/${pin.author_user_info.user_id}) [L${pin.author_user_info.level}]${title}`,
+        user: `[${pin.author_user_info.user_name}](https://juejin.cn/user/${pin.author_user_info.user_id}) [L${pin.author_user_info.level}]${title}`,
         date: Utils.day(pin.msg_Info.ctime * 1000).format('YYYY-MM-DD HH:mm'),
         content: pin.msg_Info.content,
         images,
         topic: `[${pin.topic.title}]`,
-        pinLink: `[查看原文](https://juejin.im/pin/${pin.msg_id})`,
+        pinLink: `[查看原文](https://juejin.cn/pin/${pin.msg_id})`,
         outLink: pin.msg_Info.url ? ('\n\n===> ' + `[${pin.msg_Info.url_title ? pin.msg_Info.url_title : '相关链接'}](${pin.msg_Info.url})` + ' <===' ) : ''
       }))
     }
@@ -361,7 +361,7 @@ export async function posts(categoryKeyword = '', tagKeyword = '', sortKeyword =
       continue
     }
   
-    const url = `https://juejin.im/post/${post_id}`
+    const url = `https://juejin.cn/post/${post_id}`
     const converted = await convertUrlToMarkdown({ url })
   
     const { markdown, title } = converted
