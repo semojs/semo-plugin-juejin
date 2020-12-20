@@ -5,9 +5,6 @@ import iterm2Version from 'iterm2-version'
 import terminalImage from 'terminal-image'
 import marked from 'marked'
 import TerminalRenderer from 'marked-terminal'
-marked.setOptions({
-  renderer: new TerminalRenderer()
-})
 
 import fuzzy from 'fuzzy'
 import InquirerAutucompletePrompt from 'inquirer-autocomplete-prompt'
@@ -24,6 +21,9 @@ const JUEJIN_POST_RECOMMENDED_ALL_CATEGORY_ID = 1
 const JUEJIN_POST_RECOMMENDED_ALL_TAG_ID = 1
 
 export async function pins(topicKeyword, opts) {
+  marked.setOptions({
+    renderer: new TerminalRenderer()
+  })
   let topics = await juejin.getTopics()
 
   topics.unshift({
@@ -227,6 +227,9 @@ function itSupportTerminalImage() {
 }
 
 export async function posts(categoryKeyword = '', tagKeyword = '', sortKeyword = '', opts: any = {}) {
+  marked.setOptions({
+    renderer: new TerminalRenderer()
+  })
   const categories = await juejin.getCategoryBriefs()
   categories.unshift({
     category_id: JUEJIN_POST_RECOMMENDED_ALL_CATEGORY_ID,
