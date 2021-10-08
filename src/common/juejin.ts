@@ -41,7 +41,7 @@ export async function pins(topicKeyword, opts) {
       short: 'recommend'
     }
   })
-  
+
   let topicsFiltered: any[] = []
   if (topicKeyword) {
     topicsFiltered = topics.filter(item => {
@@ -68,7 +68,7 @@ export async function pins(topicKeyword, opts) {
   let firstPinId
 
   while (true) {
-    let pins 
+    let pins
     if (topic_id === JUEJIN_PIN_RECOMMENDED_TOPIC_ID) {
       pins = await juejin.getRecommendedPins({ cursor })
     } else if (topic_id === JUEJIN_PIN_HOT_TOPIC_ID) {
@@ -102,7 +102,7 @@ async function renderPins(topic_id: string, pins: any[], opts) {
 
 {{ pinLink }}
 `
-  
+
 
   for (const chunkedPins of Utils._.chunk(pins, opts.size)) {
     const pinsRendered: any[] = []
@@ -185,7 +185,7 @@ async function renderPins(topic_id: string, pins: any[], opts) {
 
       if (input === 'n' || Utils._.isNull(input)) return false
       console.log()
-      
+
     }
   }
 
@@ -239,7 +239,7 @@ export async function posts(categoryKeyword = '', tagKeyword = '', sortKeyword =
 
   let categoriesFiltered: any[] = []
   if (categoryKeyword) {
-    categoriesFiltered = categories.filter(item => { 
+    categoriesFiltered = categories.filter(item => {
       return fuzzy.test(categoryKeyword, item.category_name)
         || fuzzy.test(categoryKeyword, item.category_url)
     })
@@ -356,61 +356,48 @@ export async function posts(categoryKeyword = '', tagKeyword = '', sortKeyword =
         title: '下一页'
       }
     })
-    
+
     const post_id = await choosePost(posts)
 
     if (post_id === 0) {
       cursor = data.cursor
       continue
     }
-  
-    const url = `https://juejin.cn/post/${post_id}`
-    const converted = await convertUrlToMarkdown({ url })
-  
-    const { markdown, title } = converted
-  
-    if (opts.copy || opts.copyOnly) {
-      await convertMarkdownToFile({
-        format: 'clipboard',
-        markdown,
-        title,
-        converted,
-        argv: {
-          url
-        }
+
+    const { article_info } = await juejin.getPostDetail({
+      article_id: post_id
+    })
+
+    const { mark_content } = article_info
+
+    if (opts.mdcat && Utils.shell.which('mdcat')) {
+      Utils.clearConsole()
+
+      const tmpPath = Utils.consoleReader(mark_content.replace('.image)', '.png)'), {
+        plugin: 'semo-plugin-juejin',
+        identifier: post_id,
+        tmpPathOnly: true
+      })
+      try {
+        Utils.exec(`mdcat ${tmpPath}`)
+      } catch (e) {}
+
+      Utils.fs.unlinkSync(tmpPath)
+
+      console.log()
+      const input = prompt('是否继续？[Y/n] [回车继续, ^C 或 n+回车退出]: ', 'Y', {
+        echo: ''
+      })
+
+      if (input === 'n' || Utils._.isNull(input)) return false
+      console.log()
+    } else {
+      Utils.consoleReader(marked(mark_content), {
+        plugin: 'semo-plugin-juejin',
+        identifier: post_id
       })
     }
-  
-    if (!opts.copyOnly) {
-      if (opts.mdcat && Utils.shell.which('mdcat')) {
-        Utils.clearConsole()
 
-        const tmpPath = Utils.consoleReader(markdown.replace('.image)', '.png)'), {
-          plugin: 'semo-plugin-juejin',
-          identifier: post_id,
-          tmpPathOnly: true
-        })
-        try {
-          Utils.exec(`mdcat ${tmpPath}`)
-        } catch (e) {}
-
-        Utils.fs.unlinkSync(tmpPath)
-
-        console.log()
-        const input = prompt('是否继续？[Y/n] [回车继续, ^C 或 n+回车退出]: ', 'Y', {
-          echo: ''
-        })
-
-        if (input === 'n' || Utils._.isNull(input)) return false
-        console.log()
-      } else {
-        Utils.consoleReader(marked(markdown), {
-          plugin: 'semo-plugin-juejin',
-          identifier: post_id
-        })
-      }
-
-    }
   }
 }
 

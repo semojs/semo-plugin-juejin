@@ -45,7 +45,14 @@ export async function getRecommendedTagList({ cate_id = "" }) {
 }
 
 
+export async function getPostDetail({ article_id }) {
+  const response: any = await got.post('https://api.juejin.cn/content_api/v1/article/detail', {
+    json: { article_id },
+    responseType: 'json'
+  })
 
+  return response.body.data
+}
 
 export async function getTopics({ limit = 45, cursor = '0', sort_type = 7 } = {}) {
   const response: any = await got.post('https://api.juejin.cn/tag_api/v1/query_topic_list', {
