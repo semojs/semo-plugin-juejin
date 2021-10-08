@@ -1,4 +1,3 @@
-import { convertUrlToMarkdown, convertMarkdownToFile } from 'semo-plugin-read'
 import { Utils } from '@semo/core'
 import got from 'got'
 import iterm2Version from 'iterm2-version'
