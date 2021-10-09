@@ -10,6 +10,8 @@ export const desc = '看掘金文章'
 export const builder = function (yargs: any) {
   yargs.option('default', { describe: '参数使用默认值', alias: 'D', default: true })
   yargs.option('mdcat', { describe: '使用 mdcat 模式，需要先安装', alias: 'M' })
+  yargs.option('copy', { describe: '看文章的同时保存到剪贴板', alias: 'C' })
+  yargs.option('copy-only', { describe: '不看文章，只把文章保存到剪贴板就返回', alias: 'O' })
 }
 
 export const handler = async function (argv: any) {

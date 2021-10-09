@@ -4,6 +4,7 @@ import iterm2Version from 'iterm2-version'
 import terminalImage from 'terminal-image'
 import marked from 'marked'
 import TerminalRenderer from 'marked-terminal'
+import clipboardy from 'clipboardy'
 
 import fuzzy from 'fuzzy'
 import InquirerAutucompletePrompt from 'inquirer-autocomplete-prompt'
@@ -367,36 +368,46 @@ export async function posts(categoryKeyword = '', tagKeyword = '', sortKeyword =
       article_id: post_id
     })
 
-    const { mark_content } = article_info
+    const { mark_content, title } = article_info
 
-    if (opts.mdcat && Utils.shell.which('mdcat')) {
-      Utils.clearConsole()
+    if (opts.copyOnly || opts.copy) {
+      clipboardy.writeSync(`# ${title}
 
-      const tmpPath = Utils.consoleReader(mark_content.replace('.image)', '.png)'), {
-        plugin: 'semo-plugin-juejin',
-        identifier: post_id,
-        tmpPathOnly: true
-      })
-      try {
-        Utils.exec(`mdcat ${tmpPath}`)
-      } catch (e) {}
-
-      Utils.fs.unlinkSync(tmpPath)
-
-      console.log()
-      const input = prompt('是否继续？[Y/n] [回车继续, ^C 或 n+回车退出]: ', 'Y', {
-        echo: ''
-      })
-
-      if (input === 'n' || Utils._.isNull(input)) return false
-      console.log()
-    } else {
-      Utils.consoleReader(marked(mark_content), {
-        plugin: 'semo-plugin-juejin',
-        identifier: post_id
-      })
+${mark_content}`)
     }
 
+    if (!opts.copyOnly) {
+      if (opts.mdcat && Utils.shell.which('mdcat')) {
+        Utils.clearConsole()
+
+        const tmpPath = Utils.consoleReader(mark_content.replace('.image)', '.png)'), {
+          plugin: 'semo-plugin-juejin',
+          identifier: post_id,
+          tmpPathOnly: true
+        })
+        try {
+          Utils.exec(`mdcat ${tmpPath}`)
+        } catch (e) {}
+
+        Utils.fs.unlinkSync(tmpPath)
+
+        console.log()
+        const input = prompt('是否继续？[Y/n] [回车继续, ^C 或 n+回车退出]: ', 'Y', {
+          echo: ''
+        })
+
+        if (input === 'n' || Utils._.isNull(input)) return false
+        console.log()
+      } else {
+        Utils.consoleReader(marked(mark_content), {
+          plugin: 'semo-plugin-juejin',
+          identifier: post_id
+        })
+      }
+    } else {
+      Utils.success(`Copied to system clipboard successfully.`)
+      return false
+    }
   }
 }
 
