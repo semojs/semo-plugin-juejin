@@ -144,7 +144,7 @@ async function renderPins(topic_id: string, pins: any[], opts) {
       pinsRendered.push(Utils._.template(template)({
         user: `[${pin.author_user_info.user_name}](https://juejin.cn/user/${pin.author_user_info.user_id}) [L${pin.author_user_info.level}]${title}`,
         date: Utils.day(pin.msg_Info.ctime * 1000).format('YYYY-MM-DD HH:mm'),
-        content: pin.msg_Info.content,
+        content: pin.msg_Info.content.replace(/\[\d+(#.*#)\]/, '[$1]'),
         images,
         topic: `[${pin.topic.title}]`,
         pinLink: `[查看原文](https://juejin.cn/pin/${pin.msg_id})`,
