@@ -84,6 +84,10 @@ export async function pins(topicKeyword, opts) {
     if (!goon) {
       break;
     }
+    if (goon === true) {
+      cursor = "0"
+      continue;
+    }
     cursor = Buffer.from(JSON.stringify({ v: firstPinId, i: (page++) * 20 })).toString('base64')
   }
 }
@@ -168,22 +172,24 @@ async function renderPins(topic_id: string, pins: any[], opts) {
       Utils.fs.unlinkSync(tmpPath)
 
       console.log()
-      const input = prompt('是否继续？[Y/n] [回车继续, ^C 或 n+回车退出]: ', 'Y', {
+      const input = prompt('是否继续？[Y/n] [回车继续, n+回车退出, r+回车刷新从头开始]: ', 'Y', {
         echo: ''
       })
 
       if (input === 'n' || Utils._.isNull(input)) return false
+      if (input === 'r') return true
       console.log()
     } else {
       Utils.clearConsole()
 
       console.log(marked(pinsRendered.join('\n\n---\n\n')))
 
-      const input = prompt('是否继续？[Y/n] [回车继续, ^C 或 n+回车退出]: ', 'Y', {
+      const input = prompt('是否继续？[Y/n] [回车继续, n+回车退出, r+回车刷新从头开始]: ', 'Y', {
         echo: ''
       })
 
       if (input === 'n' || Utils._.isNull(input)) return false
+      if (input === 'r') return true
       console.log()
 
     }
