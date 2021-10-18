@@ -81,7 +81,7 @@ export async function pins(topicKeyword, opts) {
       firstPinId = pins[0].msg_id
     }
     const goon = await renderPins(topic_id, pins, opts)
-    if (!goon) {
+    if (goon === false) {
       break;
     }
     if (goon === true) {
@@ -195,7 +195,7 @@ async function renderPins(topic_id: string, pins: any[], opts) {
     }
   }
 
-  return true
+  return null
 }
 
 async function chooseTopic(topics) {
