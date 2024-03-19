@@ -64,12 +64,13 @@ Options:
   --mdcat, -M      使用 mdcat 模式，需要先安装
   --copy, -C       看文章的同时保存到剪贴板
   --copy-only, -O  不看文章，只把文章保存到剪贴板就返回
+  --uuid
   -h, --help       Show help                                                                                   [boolean]
 ```
 
 每个选项都很好理解，下面说一说常用的组合：
 
-``` bash
+```bash
 semo juejin pin -D # 用默认选项看沸点
 semo juejin pin -DL # 使用 less 模式，我不想看图
 semo juejin ping -D -S 2 # 一次看两条也是可以的。
@@ -81,7 +82,7 @@ semo juejin post -DM # 使用 mdcat 模式，我要看图
 
 ## 截图
 
-一边看沸点，一边学习😀
+一边看沸点，一边学习 😀
 
 ![](assets/image-20200904010832262.png)
 
