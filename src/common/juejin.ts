@@ -29,7 +29,7 @@ const isGoon = async function () {
         process.stdin.off("keypress", listener);
         resolve("exit");
       } else {
-        if (key.name === "return") {
+        if (key.name === "return" || key.name === "space") {
           process.stdin.off("keypress", listener);
           resolve("next");
         }
