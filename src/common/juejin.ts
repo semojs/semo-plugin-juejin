@@ -302,8 +302,11 @@ async function chooseTopic(topics) {
 }
 
 function itSupportTerminalImage() {
-  const version: any = iterm2Version();
-  return process.env.TERM_PROGRAM === "iTerm.app" && Number(version[0]) >= 3;
+  if (process.env.TERM_PROGRAM === "iTerm.app") {
+    const version: any = iterm2Version();
+    return Number(version[0]) >= 3;
+  }
+  return false;
 }
 
 export async function posts(

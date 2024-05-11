@@ -24,6 +24,7 @@ export const builder = function (yargs: any) {
     describe: "参数使用默认值",
     alias: "D",
     default: true,
+    boolean: true,
   });
 };
 
