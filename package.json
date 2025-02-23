@@ -1,6 +1,6 @@
 {
   "name": "semo-plugin-juejin",
-  "version": "2.0.10",
+  "version": "2.1.0",
   "description": "A Semo plugin to provide ability to view juejin in terminal",
   "keywords": [
     "semo",
