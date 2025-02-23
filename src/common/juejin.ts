@@ -7,6 +7,13 @@ import TerminalRenderer from "marked-terminal";
 import clipboardy from "clipboardy";
 import inquirer from "inquirer";
 import readline from "readline";
+import read from "@vipzhichengfork/node-readability";
+import util from "util";
+import * as globalProcessHandler from "../process/global";
+import * as juejinProcessHandler from "../process/juejin.im";
+
+import TurndownService from "turndown";
+import { tables } from "turndown-plugin-gfm";
 
 import fuzzy from "fuzzy";
 import InquirerAutucompletePrompt from "inquirer-autocomplete-prompt";
@@ -19,52 +26,96 @@ const JUEJIN_PIN_HOT_TOPIC_ID = 2;
 const JUEJIN_POST_RECOMMENDED_ALL_CATEGORY_ID = 1;
 const JUEJIN_POST_RECOMMENDED_ALL_TAG_ID = 1;
 
+const promiseRead = util.promisify(read);
+const turndownService = new TurndownService({
+  codeBlockStyle: "indented",
+});
+turndownService.use(tables);
+
 const isGoon = async function () {
   const goon = await new Promise((resolve) => {
     // 用于跟踪连续按两次'g'的状态
-    let gPressedTwice = false;
+    // let gPressedTwice = false;
+
+    // 确保 stdin 处于流动状态
+    if (process.stdin.isPaused()) {
+      process.stdin.resume();
+    }
+
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+    // 设置 raw 模式
+    // 将标准输入设置为原始模式。在原始模式下，输入不会被行缓冲（即每次按键都会立即被程序读取，而不是等到按下回车键）
+    process.stdin.setRawMode(true);
+
+    // 移除之前的所有 keypress 监听器
+    process.stdin.removeAllListeners("keypress");
 
     const listener = (str, key) => {
       if (key.ctrl && key.name === "c") {
         process.stdin.off("keypress", listener);
+        rl.close();
+        process.stdin.setRawMode(false);
         resolve("exit");
+      } else if (!key.shift && !key.ctrl && !key.alt && key.name === "g") {
+        // if (gPressedTwice) {
+        //   // 移动光标到第一行
+        //   readline.cursorTo(process.stdout, 0, 0);
+        //   gPressedTwice = false;
+        // } else {
+        //   gPressedTwice = true;
+        //   // 设置一个短暂的超时来重置 gPressedTwice 状态
+        //   setTimeout(() => {
+        //     gPressedTwice = false;
+        //   }, 500); // 500ms 内按两次 g
+        // }
+      } else if (key.shift && key.name === "g") {
+        // readline.cursorTo(process.stdout, 0, process.stdout.rows - 1);
+      } else if (key.name === "j") {
+        // readline.moveCursor(process.stdout, 0, 1);
+      } else if (key.name === "k") {
+        // readline.moveCursor(process.stdout, 0, -1);
       } else {
-        if (key.name === "return" || key.name === "space") {
+        if (["1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(key.name)) {
           process.stdin.off("keypress", listener);
+          rl.close();
+          process.stdin.setRawMode(false);
+          resolve(key.name);
+        }
+        if (key.name === "return" || key.name === "space" || key.name === "n") {
+          process.stdin.off("keypress", listener);
+          rl.close();
+          process.stdin.setRawMode(false);
           resolve("next");
         }
         if (key.name === "r") {
           process.stdin.off("keypress", listener);
+          rl.close();
+          process.stdin.setRawMode(false);
           resolve("first");
+        }
+
+        if (key.name === "h") {
+          process.stdin.off("keypress", listener);
+          rl.close();
+          process.stdin.setRawMode(false);
+          resolve("help");
+        }
+
+        if (key.name === "p") {
+          process.stdin.off("keypress", listener);
+          rl.close();
+          process.stdin.setRawMode(false);
+          resolve("prev");
         }
 
         if (key.name === "q") {
           process.stdin.off("keypress", listener);
+          rl.close();
+          process.stdin.setRawMode(false);
           resolve("exit");
-        }
-
-        if (key.shift && key.name === "g") {
-          readline.cursorTo(process.stdout, 0, process.stdout.rows - 1);
-        }
-
-        if (!key.shift && !key.ctrl && !key.alt && key.name === "g") {
-          if (gPressedTwice) {
-            // 如果已经连续按了两次'g'，执行特定操作
-            readline.cursorTo(process.stdout, 0, 0);
-            gPressedTwice = false; // 重置状态
-          } else {
-            gPressedTwice = true; // 标记已经按了一次'g'
-          }
-        } else {
-          gPressedTwice = false; // 如果按了其他键，重置状态
-        }
-
-        if (key.name === "j") {
-          readline.moveCursor(process.stdout, 0, 1);
-        }
-
-        if (key.name === "k") {
-          readline.moveCursor(process.stdout, 0, -1);
         }
       }
     };
@@ -76,6 +127,8 @@ const isGoon = async function () {
 export async function pins(topicKeyword, opts) {
   marked.setOptions({
     renderer: new TerminalRenderer(),
+    unescapeEntities: false,
+    color: true,
   });
   let topics = await juejin.getTopics();
 
@@ -113,7 +166,7 @@ export async function pins(topicKeyword, opts) {
     topic_id = await chooseTopic(topicsFiltered);
   } else {
     if (topicKeyword) {
-      Utils.warn("Topic not found!");
+      Utils.warn("主题未找到!");
     }
     topic_id = await chooseTopic(topics);
   }
@@ -121,6 +174,8 @@ export async function pins(topicKeyword, opts) {
   let cursor = "0";
   let page = 1;
   let firstPinId;
+  let lastCursor = "0";
+  let isPrev = false;
 
   while (true) {
     let pins;
@@ -135,23 +190,49 @@ export async function pins(topicKeyword, opts) {
     if (!firstPinId) {
       firstPinId = pins[0].msg_id;
     }
-    const goon = await renderPins(topic_id, pins, opts);
-
+    const goon = await renderPins(topic_id, pins, opts, page, isPrev);
     if (goon === "first") {
+      isPrev = false;
       cursor = "0";
       page = 1;
       continue;
     } else if (goon === "next") {
+      isPrev = false;
+      lastCursor = cursor;
+      cursor = Buffer.from(
+        JSON.stringify({ v: firstPinId, i: page++ * 20 })
+      ).toString("base64");
+    } else if (goon === "prev") {
+      isPrev = cursor !== "0";
+      page--;
+      cursor = lastCursor;
+    } else if (["1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(goon)) {
+      page = Number(goon);
+
+      if (page === 1) {
+        isPrev = false;
+        cursor = "0";
+        continue;
+      } else {
+        isPrev = false;
+        lastCursor = cursor;
+        cursor = Buffer.from(
+          JSON.stringify({ v: firstPinId, i: (page - 1) * 20 })
+        ).toString("base64");
+      }
     } else if (goon === "exit") {
       process.exit(0);
     }
-    cursor = Buffer.from(
-      JSON.stringify({ v: firstPinId, i: page++ * 20 })
-    ).toString("base64");
   }
 }
 
-async function renderPins(topic_id: string, pins: any[], opts) {
+async function renderPins(
+  topic_id: string,
+  pins: any[],
+  opts,
+  page,
+  isPrev = false
+) {
   Utils._.templateSettings.interpolate = /{{([\s\S]+?)}}/g;
   const template = `
 ## {{ user }}
@@ -162,10 +243,13 @@ async function renderPins(topic_id: string, pins: any[], opts) {
 
 {{ images }}
 
-{{ pinLink }}
+@[第 {{ page }} 页 - 第 {{ pinCursor + 1 }} 条] {{ pinLink }}
 `;
 
-  for (const chunkedPins of Utils._.chunk(pins, opts.size)) {
+  let goon;
+  let pinCursor = isPrev ? pins.length - 1 : 0;
+  while (pinCursor < pins.length) {
+    const chunkedPins = pins.slice(pinCursor, pinCursor + 1);
     const pinsRendered: any[] = [];
     for (let pin of chunkedPins) {
       pin.msg_Info.pic_list = pin.msg_Info.pic_list.map((image) =>
@@ -216,6 +300,8 @@ async function renderPins(topic_id: string, pins: any[], opts) {
           images,
           topic: `[${pin.topic.title}]`,
           pinLink: `[查看原文](https://juejin.cn/pin/${pin.msg_id})`,
+          page,
+          pinCursor,
           outLink: pin.msg_Info.url
             ? "\n\n===> " +
               `[${
@@ -228,14 +314,18 @@ async function renderPins(topic_id: string, pins: any[], opts) {
     }
 
     if (opts.less) {
-      pinsRendered.push("按 q 下一条, Ctrl+C 退出");
+      pinsRendered.push("按 q 下一条, CTRL+c 退出");
       Utils.consoleReader(marked(pinsRendered.join("\n\n---\n\n")), {
         plugin: "semo-plugin-juejin",
         identifier: topic_id + "",
       });
+      pinCursor++;
+      goon = "next";
     } else if (opts.mdcat && Utils.shell.which("mdcat")) {
       Utils.clearConsole();
-      pinsRendered.push("按回车下一条, 按 r 重新开始, 按 q 或 Ctrl+C 退出");
+      pinsRendered.push(
+        "按空格或回车下一条，按 q 或 CTRL+c 退出，按 h 查看帮助"
+      );
 
       const tmpPath = Utils.consoleReader(pinsRendered.join("\n\n---\n\n"), {
         plugin: "semo-plugin-juejin",
@@ -250,26 +340,135 @@ async function renderPins(topic_id: string, pins: any[], opts) {
 
       console.log();
 
-      const wasRaw = process.stdin.isRaw;
-      if (process.stdin.isTTY && !wasRaw) process.stdin.setRawMode(true);
-      const goon = await isGoon();
-      process.stdin.setRawMode(wasRaw);
-      return goon;
+      goon = await isGoon();
+      if (
+        ["exit", "first", "1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(
+          goon
+        )
+      )
+        return goon;
+      if (goon === "prev") {
+        if (pinCursor === 0) {
+          return goon;
+        }
+        pinCursor--;
+      } else if (goon === "next") {
+        pinCursor++;
+      } else if (goon === "help") {
+        Utils.clearConsole();
+        const helpLines: any[] = [];
+
+        helpLines.push(`
+| 操作 | 说明 |
+| --- | --- |
+| 空格/回车 | 下一条 |
+| p | 上一条 |
+| n | 下一条 |
+| r | 重置为第1页第1条 |
+| 1-9 | 快速跳转到1-9页 |
+| h | 查看帮助, 退出帮助 |
+| CTRL+c/q | 退出 |
+
+        `);
+        console.log(marked(helpLines.join("\n\n---\n\n")));
+
+        goon = await isGoon();
+        if (
+          [
+            "exit",
+            "first",
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7",
+            "8",
+            "9",
+          ].includes(goon)
+        )
+          return goon;
+        if (goon === "prev") {
+          if (pinCursor === 0) {
+            return goon;
+          }
+          pinCursor--;
+        } else if (goon === "next") {
+          pinCursor++;
+        } else if (goon === "help") {
+        }
+      }
     } else {
       Utils.clearConsole();
-
-      pinsRendered.push("按回车下一条, 按 r 重新开始, 按 q 或 Ctrl+C 退出");
+      pinsRendered.push(
+        "按空格或回车下一条，按 q 或 CTRL+c 退出，按 h 查看帮助"
+      );
       console.log(marked(pinsRendered.join("\n\n---\n\n")));
 
-      const wasRaw = process.stdin.isRaw;
-      if (process.stdin.isTTY && !wasRaw) process.stdin.setRawMode(true);
-      const goon = await isGoon();
-      process.stdin.setRawMode(wasRaw);
-      return goon;
+      goon = await isGoon();
+      if (
+        ["exit", "first", "1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(
+          goon
+        )
+      )
+        return goon;
+      if (goon === "prev") {
+        if (pinCursor === 0) {
+          return goon;
+        }
+        pinCursor--;
+      } else if (goon === "next") {
+        pinCursor++;
+      } else if (goon === "help") {
+        Utils.clearConsole();
+        const helpLines: any[] = [];
+
+        helpLines.push(`
+| 操作 | 说明 |
+| --- | --- |
+| 空格/回车 | 下一条 |
+| p | 上一条 |
+| n | 下一条 |
+| r | 重置为第1页第1条 |
+| 1-9 | 快速跳转到1-9页 |
+| h | 查看帮助, 退出帮助 |
+| CTRL+c/q | 退出 |
+
+        `);
+        console.log(marked(helpLines.join("\n\n---\n\n")));
+
+        goon = await isGoon();
+        if (
+          [
+            "exit",
+            "first",
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7",
+            "8",
+            "9",
+          ].includes(goon)
+        )
+          return goon;
+        if (goon === "prev") {
+          if (pinCursor === 0) {
+            return goon;
+          }
+          pinCursor--;
+        } else if (goon === "next") {
+          pinCursor++;
+        } else if (goon === "help") {
+        }
+      }
     }
   }
 
-  return null;
+  return goon;
 }
 
 async function chooseTopic(topics) {
@@ -277,7 +476,7 @@ async function chooseTopic(topics) {
     {
       type: "autocomplete",
       name: "selected",
-      message: `请选择一个话题: [支持模糊搜索]`,
+      message: `请选择一个主题: [支持模糊搜索]`,
       pageSize: 20,
       source: (answers, input) => {
         input = input || "";
@@ -471,16 +670,39 @@ export async function posts(
       continue;
     }
 
-    const { article_info } = await juejin.getPostDetail({
-      article_id: post_id,
+    // const { article_info } = await juejin.getPostDetail({
+    //   article_id: post_id,
+    // });
+
+    const postUrl = `https://juejin.cn/post/${post_id}`;
+    const article = await promiseRead(postUrl, {
+      preserveUnlikelyCandidates: true,
+      preprocess: function (source, response, contentType, callback) {
+        // HTML 预处理
+        const opts = {
+          url: postUrl,
+        };
+        source = globalProcessHandler.preprocess(source, opts);
+        try {
+          source = juejinProcessHandler.preprocess(source, opts);
+        } catch (e) {
+          console.log(e);
+          process.exit(1);
+        }
+
+        callback(null, source);
+      },
     });
+    if (!article.cache.body) {
+      throw new Error("Parse failed, not a supported url!");
+    }
 
-    const { mark_content, title } = article_info;
+    const template = turndownService.turndown(`${article.cache.body}
 
+[查看原文](${postUrl})
+`);
     if (opts.copyOnly || opts.copy) {
-      clipboardy.writeSync(`# ${title}
-
-${mark_content}`);
+      clipboardy.writeSync(template);
     }
 
     if (!opts.copyOnly) {
@@ -488,7 +710,7 @@ ${mark_content}`);
         Utils.clearConsole();
 
         const tmpPath = Utils.consoleReader(
-          mark_content.replace(".image)", ".png)"),
+          template.replace(".image)", ".png)"),
           {
             plugin: "semo-plugin-juejin",
             identifier: post_id,
@@ -502,7 +724,7 @@ ${mark_content}`);
         Utils.fs.unlinkSync(tmpPath);
 
         console.log();
-        console.log("按回车返回, 按 q 或 Ctrl+C 退出");
+        console.log("按回车返回, 按 q 或 CTRL+C 退出");
 
         process.stdin.resume();
         process.stdin.setEncoding("utf8");
@@ -516,13 +738,25 @@ ${mark_content}`);
         } else if (goon === "next") {
           continue;
         }
-      } else {
+      } else if (opts.less) {
         try {
-          Utils.consoleReader(marked(mark_content), {
+          Utils.consoleReader(marked(template), {
             plugin: "semo-plugin-juejin",
             identifier: post_id,
           });
         } catch (e) {}
+      } else {
+        Utils.clearConsole();
+        const postList: any[] = [template];
+        postList.push("按回车返回, 按 q 或 CTRL+C 退出");
+        console.log(marked(postList.join("\n\n---\n\n")));
+
+        const goon = await isGoon();
+        if (goon === "exit") {
+          process.exit(0);
+        } else if (goon === "next") {
+          continue;
+        }
       }
     } else {
       Utils.success(`Copied to system clipboard successfully.`);

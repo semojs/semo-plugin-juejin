@@ -37,6 +37,8 @@
   },
   "dependencies": {
     "@semo/core": "^1.6.1",
+    "@vipzhichengfork/node-readability": "^1.0.5",
+    "cheerio": "^1.0.0",
     "clipboardy": "^2.3.0",
     "fuzzy": "^0.1.3",
     "got": "^11.8.2",
@@ -47,7 +49,9 @@
     "marked-terminal": "^4.2.0",
     "semo-plugin-read": "^1.0.22",
     "semo-plugin-read-extend-domain-juejin": "^1.0.20",
-    "terminal-image": "^1.2.1"
+    "terminal-image": "^1.2.1",
+    "turndown": "^7.2.0",
+    "turndown-plugin-gfm": "^1.0.2"
   },
   "publishConfig": {
     "access": "public"

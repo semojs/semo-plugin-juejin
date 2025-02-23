@@ -87,7 +87,14 @@ export async function getPostDetail({ article_id }) {
   const response: any = await got.post(
     "https://api.juejin.cn/content_api/v1/article/detail",
     {
-      json: { article_id },
+      json: {
+        article_id,
+        client_type: 2608,
+        forbid_count: false,
+        is_pre_load: false,
+        need_theme: false,
+        req_from: 1,
+      },
       responseType: "json",
     }
   );
