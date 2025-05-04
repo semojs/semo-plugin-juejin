@@ -1,11 +1,11 @@
-import * as api from '../common/api'
-import * as juejin from '../common/juejin'
-export = (Utils) => {
-  return {
-    hook_repl: new Utils.Hook('semo', () => {
-      return {
-        api, juejin
-      }
-    })
-  }
+import * as api from '../common/api.js'
+import * as juejin from '../common/juejin.js'
+
+export const hook_repl = {
+  semo: () => {
+    return {
+      api,
+      juejin,
+    }
+  },
 }

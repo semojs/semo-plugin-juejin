@@ -11,5 +11,4 @@ export const builder = function (yargs: any) {
   yargs.default('op', 'pin')
 }
 
-export const handler = async function (argv: any) {
-}
+export const handler = async function (_argv: any) {}
